@@ -1,0 +1,147 @@
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import stats
+
+class DistribucionesApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Visualizador de Distribuciones")
+        self.root.geometry("1200x800")  # Tamaño ajustado
+        self.root.configure(bg="#000000")  # Fondo negro
+
+        # Crear la interfaz gráfica
+        self.crear_widgets()
+
+    def crear_widgets(self):
+        # Etiqueta para la selección de la distribución
+        self.etiqueta_distribucion = tk.Label(self.root, text="Selecciona una distribución:", bg="#000000", fg="#00BFFF", font=("Arial", 12, "bold"))
+        self.etiqueta_distribucion.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+
+        # ComboBox para seleccionar distribución
+        self.distribuciones = ['Distribución Binomial', 'Distribución Poisson', 'Distribución Geométrica',
+                               'Distribución Normal', 'Distribución Exponencial', 'Distribución Uniforme']
+        self.combo_distribucion = ttk.Combobox(self.root, values=self.distribuciones, state="readonly", font=("Arial", 12))
+        self.combo_distribucion.grid(row=0, column=1, padx=10, pady=10, sticky="w")
+        self.combo_distribucion.current(0)
+
+        # Etiquetas y entradas para los parámetros
+        self.etiqueta_param1 = tk.Label(self.root, text="Parámetro 1:", bg="#000000", fg="#00BFFF", font=("Arial", 12, "bold"))
+        self.etiqueta_param1.grid(row=1, column=0, padx=10, pady=10, sticky="w")
+        self.entrada_param1 = tk.Entry(self.root, font=("Arial", 12))
+        self.entrada_param1.grid(row=1, column=1, padx=10, pady=10, sticky="w")
+
+        self.etiqueta_param2 = tk.Label(self.root, text="Parámetro 2 (opcional):", bg="#000000", fg="#00BFFF", font=("Arial", 12, "bold"))
+        self.etiqueta_param2.grid(row=2, column=0, padx=10, pady=10, sticky="w")
+        self.entrada_param2 = tk.Entry(self.root, font=("Arial", 12))
+        self.entrada_param2.grid(row=2, column=1, padx=10, pady=10, sticky="w")
+
+        # Botón para generar y mostrar la distribución
+        self.boton_generar = tk.Button(self.root, text="Generar Distribución", command=self.generar_distribucion, bg="#00BFFF", fg="#FFFFFF", font=("Arial", 12, "bold"))
+        self.boton_generar.grid(row=3, column=0, columnspan=2, padx=10, pady=20)
+
+        # Área para mostrar la gráfica
+        self.frame_grafico = tk.Frame(self.root, bg="#000000", relief=tk.RIDGE, bd=2, highlightbackground="#00BFFF", highlightthickness=2)
+        self.frame_grafico.grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.root.grid_rowconfigure(4, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
+
+    def generar_distribucion(self):
+        distribucion = self.combo_distribucion.get()
+        try:
+            # Obtener los parámetros ingresados
+            param1 = float(self.entrada_param1.get())
+            param2 = float(self.entrada_param2.get()) if self.entrada_param2.get() else None
+
+            # Inicializar valores de la distribución
+            x, y, muestras = None, None, None
+
+            if distribucion == 'Distribución Binomial' and param2 is not None:
+                n, p = int(param1), param2
+                x = np.arange(0, n+1)
+                y = stats.binom.pmf(x, n, p)
+                muestras = stats.binom.rvs(n, p, size=1000)
+
+            elif distribucion == 'Distribución Poisson' and param2 is None:
+                lambda_ = param1
+                x = np.arange(0, 20)
+                y = stats.poisson.pmf(x, lambda_)
+                muestras = stats.poisson.rvs(lambda_, size=1000)
+
+            elif distribucion == 'Distribución Geométrica' and param2 is None:
+                p = param1
+                x = np.arange(0, 20)
+                y = stats.geom.pmf(x, p)
+                muestras = stats.geom.rvs(p, size=1000)
+
+            elif distribucion == 'Distribución Normal' and param2 is not None:
+                mu, sigma = param1, param2
+                x = np.linspace(mu - 4*sigma, mu + 4*sigma, 1000)
+                y = stats.norm.pdf(x, mu, sigma)
+                muestras = stats.norm.rvs(mu, sigma, size=1000)
+
+            elif distribucion == 'Distribución Exponencial' and param2 is None:
+                lambda_ = param1
+                x = np.linspace(0, 10, 1000)
+                y = stats.expon.pdf(x, scale=1/lambda_)
+                muestras = stats.expon.rvs(scale=1/lambda_, size=1000)
+
+            elif distribucion == 'Distribución Uniforme' and param2 is not None:
+                a, b = param1, param2
+                x = np.linspace(a, b, 1000)
+                y = stats.uniform.pdf(x, loc=a, scale=b-a)
+                muestras = stats.uniform.rvs(loc=a, scale=b-a, size=1000)
+
+            else:
+                raise ValueError("Parámetros inválidos o insuficientes para esta distribución.")
+
+            # Mostrar las gráficas
+            self.mostrar_grafico(x, y, muestras, distribucion)
+
+        except ValueError as e:
+            messagebox.showerror("Error", f"Entrada inválida: {e}")
+
+    def mostrar_grafico(self, x, y, muestras, distribucion):
+        # Limpiar gráficos anteriores si existen
+        for widget in self.frame_grafico.winfo_children():
+            widget.destroy()
+
+        # Crear la figura de Matplotlib
+        fig, axs = plt.subplots(1, 2, figsize=(12, 5), facecolor="#000000")
+
+        # Gráfico de barras (Función de probabilidad/densidad)
+        if len(x) <= 20:  # Gráfico discreto (barras)
+            axs[0].bar(x, y, color="#00BFFF", alpha=0.7, label=f"{distribucion}")
+        else:  # Gráfico continuo
+            axs[0].plot(x, y, color="#00BFFF", label=f"{distribucion}")
+
+        axs[0].set_title(f"Densidad/Probabilidad: {distribucion}", color="#00BFFF", fontsize=14)
+        axs[0].set_xlabel("Valores", color="#00BFFF", fontsize=12)
+        axs[0].set_ylabel("Probabilidad/Densidad", color="#00BFFF", fontsize=12)
+        axs[0].tick_params(colors="#00BFFF")
+        axs[0].grid(color="#333333", linestyle="--", alpha=0.7)
+        axs[0].legend(facecolor="#000000", edgecolor="#00BFFF", fontsize=10)
+
+        # Histograma (Frecuencia)
+        axs[1].hist(muestras, bins=20, color="#FFA500", alpha=0.7, edgecolor="#FFFFFF", label="Frecuencia de Muestras")
+        axs[1].set_title("Histograma de Frecuencia", color="#FFA500", fontsize=14)
+        axs[1].set_xlabel("Valores", color="#FFA500", fontsize=12)
+        axs[1].set_ylabel("Frecuencia", color="#FFA500", fontsize=12)
+        axs[1].tick_params(colors="#FFA500")
+        axs[1].grid(color="#333333", linestyle="--", alpha=0.7)
+        axs[1].legend(facecolor="#000000", edgecolor="#FFA500", fontsize=10)
+
+        fig.tight_layout()
+
+        # Integrar las gráficas en la ventana
+        canvas = FigureCanvasTkAgg(fig, master=self.frame_grafico)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = DistribucionesApp(root)
+    root.mainloop()
